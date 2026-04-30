@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<title>BMW EV Garage</title>
+
+<link rel="manifest" href="manifest.json">
+
+<meta name="theme-color" content="#000000">
+
+<style>
+
+body { margin:0; font-family:-apple-system; background:#000; color:#fff; }
+
+#splash {
+
+ position:fixed; inset:0; background:#000;
+
+ display:flex; flex-direction:column; align-items:center; justify-content:center;
+
+ z-index:9999;
+
+}
+
+#splash img { width:200px; border-radius:10px; }
+
+.hidden { display:none; }
+
+.header { padding:15px; font-size:18px; font-weight:600; }
+
+.cars { display:flex; overflow-x:auto; padding:10px; gap:10px; }
+
+.car {
+
+ min-width:140px; background:#111;
+
+ border:1px solid #222; border-radius:12px; padding:10px;
+
+}
+
+.car.active { border-color:#1c69d4; }
+
+.card {
+
+ background:#111; margin:10px;
+
+ border-radius:16px; padding:20px;
+
+ border:1px solid #222;
+
+}
+
+.gauge {
+
+ width:180px; height:180px; margin:auto;
+
+ border-radius:50%;
+
+ background:conic-gradient(#1c69d4 0deg,#222 0deg);
+
+ display:flex; align-items:center; justify-content:center;
+
+}
+
+.gauge-inner {
+
+ width:140px; height:140px;
+
+ background:#000; border-radius:50%;
+
+ display:flex; align-items:center; justify-content:center; flex-direction:column;
+
+}
+
+.big { font-size:32px; color:#1c69d4; }
+
+.slider { width:100%; margin-top:10px; accent-color:#1c69d4; }
+
+.stats {
+
+ display:grid; grid-template-columns:1fr 1fr;
+
+ gap:10px; margin-top:15px;
+
+}
+
+.stat {
+
+ background:#0f0f0f; padding:12px;
+
+ border-radius:10px; border:1px solid #222;
+
+}
+
+button {
+
+ width:100%; padding:14px; margin-top:15px;
+
+ border-radius:12px; border:none;
+
+ background:#1c69d4; color:white; font-size:16px;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- SPLASH -->
+
+<div id="splash">
+
+  <img id="splashImg">
+
+  <div style="margin-top:20px;color:#1c69d4;">BMW EV GARAGE</div>
+
+</div>
+
+<!-- APP -->
+
+<div id="app" class="hidden">
+
+<div class="header">My BMW Garage</div>
+
+<div class="cars" id="cars"></div>
+
+<div class="card">
+
+<div class="gauge" id="gauge">
+
+  <div class="gauge-inner">
+
+    <div class="big" id="kwh">0</div>
+
+    <div style="font-size:12px;">kWh</div>
+
+  </div>
+
+</div>
+
+<div>Current: <span id="cval">40</span>%</div>
+
+<input type="range" min="0" max="100" value="40" id="current" class="slider">
+
+<div>Target: <span id="tval">80</span>%</div>
+
+<input type="range" min="0" max="100" value="80" id="target" class="slider">
+
+<div class="stats">
+
+  <div class="stat">Energy<br><b id="energy"></b></div>
+
+  <div class="stat">Cost<br><b id="cost"></b></div>
+
+  <div class="stat">Time<br><b id="time"></b></div>
+
+  <div class="stat">Range<br><b id="range"></b></div>
+
+  <div class="stat">Charger Setting<br><b id="charger"></b></div>
+
+</div>
+
+<button onclick="calculate()">Start Smart Charge</button>
+
+</div>
+
+</div>
+
+<script>
+
+const PRICE = 0.0349;
+
+const CHARGER_POWER = 6.7;
+
+const LOSS = 1.1;
+
+const I3_SIZE = 39;
+
+const I4_SIZE = 69;
+
+const vehicles = [
+
+ {name:"BMW i3", size:39, eff:4.0, img:"https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/BMW_i3_01_2014.jpg/640px-BMW_i3_01_2014.jpg"},
+
+ {name:"BMW i4", size:69, eff:3.7, img:"https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/BMW_i4_2021.jpg/640px-BMW_i4_2021.jpg"}
+
+];
+
+let currentVehicleIndex = localStorage.v || 0;
+
+let currentVehicle = vehicles[currentVehicleIndex];
+
+// splash
+
+function showSplash(){
+
+ splashImg.src = currentVehicle.img;
+
+ setTimeout(()=>{
+
+  splash.style.display="none";
+
+  app.classList.remove("hidden");
+
+ },1500);
+
+}
+
+// render cars
+
+function renderCars(){
+
+ cars.innerHTML="";
+
+ vehicles.forEach((v,i)=>{
+
+  const d=document.createElement("div");
+
+  d.className="car"+(i==currentVehicleIndex?" active":"");
+
+  d.innerHTML=v.name+"<br><small>"+v.size+" kWh</small>";
+
+  d.onclick=()=>selectCar(i);
+
+  cars.appendChild(d);
+
+ });
+
+}
+
+function selectCar(i){
+
+ currentVehicleIndex=i;
+
+ localStorage.v=i;
+
+ currentVehicle=vehicles[i];
+
+ renderCars();
+
+ calculate();
+
+}
+
+// inputs
+
+current.oninput=()=>{cval.innerText=current.value;calculate();}
+
+target.oninput=()=>{tval.innerText=target.value;calculate();}
+
+// calculation
+
+function calculate(){
+
+ const c=+current.value;
+
+ const t=+target.value;
+
+ if(t<=c) return;
+
+ let kWh=(t-c)/100*currentVehicle.size;
+
+ kWh*=LOSS;
+
+ const cost=kWh*PRICE;
+
+ const time=kWh/CHARGER_POWER;
+
+ const miles=kWh*currentVehicle.eff;
+
+ // charger conversion (i3 only)
+
+ let chargerPercent = null;
+
+ if(currentVehicle.name==="BMW i3"){
+
+   chargerPercent = (kWh / I4_SIZE) * 100;
+
+ }
+
+ // UI
+
+ kwh.innerText=kWh.toFixed(1);
+
+ energy.innerText=kWh.toFixed(1)+" kWh";
+
+ costEl.innerText="£"+cost.toFixed(2);
+
+ timeEl.innerText=time.toFixed(1)+"h";
+
+ range.innerText=Math.round(miles)+" mi";
+
+ if(chargerPercent){
+
+   charger.innerText = Math.ceil(chargerPercent) + "% (set on charger)";
+
+ } else {
+
+   charger.innerText = "Direct (i4 connected)";
+
+ }
+
+ const deg=(t-c)*3.6;
+
+ gauge.style.background=`conic-gradient(#1c69d4 ${deg}deg,#222 ${deg}deg)`;
+
+}
+
+// refs
+
+const costEl=document.getElementById("cost");
+
+const timeEl=document.getElementById("time");
+
+// init
+
+renderCars();
+
+calculate();
+
+showSplash();
+
+// service worker
+
+if("serviceWorker" in navigator){
+
+ navigator.serviceWorker.register("sw.js");
+
+}
+
+</script>
+
+</body>
+
+</html>
