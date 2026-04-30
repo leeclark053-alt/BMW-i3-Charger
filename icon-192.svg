@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512">
+
+  <rect width="512" height="512" fill="#000"/>
+
+  <rect y="300" width="512" height="80" fill="#1c69d4"/>
+
+  <rect y="380" width="512" height="80" fill="#d40000"/>
+
+  <text x="50%" y="45%" text-anchor="middle" fill="white" font-size="120" font-family="Arial" dy=".3em">
+
+    BMW
+
+  </text>
+
+</svg>
